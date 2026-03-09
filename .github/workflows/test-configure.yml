@@ -1,0 +1,25 @@
+name: Test configure.sh
+
+on:
+  push:
+    branches:
+    - main
+    paths:
+    - 'configure.sh'
+    - 'scripts/test_configure.sh'
+    - '.github/workflows/test-configure.yml'
+  pull_request:
+    paths:
+    - 'configure.sh'
+    - 'scripts/test_configure.sh'
+    - '.github/workflows/test-configure.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Run configure.sh tests
+      run: bash scripts/test_configure.sh

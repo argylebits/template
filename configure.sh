@@ -282,7 +282,7 @@ pushd $TEMPLATE_FOLDER > /dev/null
 FILES=$(find . -maxdepth 1 ! -type d ! -name "*.sh" ! -name LICENSE ! -name ".DS_Store")
 run_mustache "$FILES" "$TARGET_FOLDER"
 # Files in Sources and Tests folder
-FILES=$(find Sources Tests .github .vscode/hummingbird.code-snippets ! -type d)
+FILES=$(find Sources Tests .github .vscode/hummingbird.code-snippets ! -type d ! -name "test-configure.yml")
 run_mustache "$FILES" "$TARGET_FOLDER"
 
 # README file
