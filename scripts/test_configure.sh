@@ -198,6 +198,67 @@ test_minimal_flags() {
 }
 
 # ============================================================================
+# Test: Only --package-name — executable defaults to "App"
+# ============================================================================
+test_package_name_only() {
+    echo "TEST: Only --package-name (executable defaults to App)"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/pkgonly"
+
+    "$CONFIGURE" "$OUTPUT_DIR" \
+        --package-name "PkgOnly" \
+        </dev/null 2>&1
+
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "PkgOnly" "Package.swift contains package name"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "App" "executable defaults to App"
+    assert_file_not_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda defaults to off"
+    assert_dir_not_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI defaults to off"
+
+    teardown
+}
+
+# ============================================================================
+# Test: Only --openapi — package name defaults to folder basename
+# ============================================================================
+test_openapi_only() {
+    echo "TEST: Only --openapi (package name defaults to folder basename)"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/my_project"
+
+    "$CONFIGURE" "$OUTPUT_DIR" \
+        --openapi \
+        </dev/null 2>&1
+
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "my_project" "package name defaults to cleaned folder basename"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "App" "executable defaults to App"
+    assert_dir_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI directory created"
+    assert_file_not_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda defaults to off"
+
+    teardown
+}
+
+# ============================================================================
+# Test: Only --lambda — package name defaults to folder basename
+# ============================================================================
+test_lambda_only() {
+    echo "TEST: Only --lambda (package name defaults to folder basename)"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/lambda_project"
+
+    "$CONFIGURE" "$OUTPUT_DIR" \
+        --lambda \
+        </dev/null 2>&1
+
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "lambda_project" "package name defaults to cleaned folder basename"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda is enabled"
+
+    teardown
+}
+
+# ============================================================================
 # Test: Invalid package name via flag
 # ============================================================================
 test_invalid_package_name() {
@@ -302,6 +363,12 @@ echo ""
 test_lambda_overrides_executable
 echo ""
 test_minimal_flags
+echo ""
+test_package_name_only
+echo ""
+test_openapi_only
+echo ""
+test_lambda_only
 echo ""
 test_invalid_package_name
 echo ""
