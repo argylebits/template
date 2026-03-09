@@ -107,6 +107,52 @@ check_valid() {
 }
 trap cleanup EXIT $?
 
+# Parse optional flags for non-interactive usage
+FLAG_PACKAGE_NAME=""
+FLAG_EXECUTABLE_NAME=""
+FLAG_LAMBDA=""
+FLAG_OPENAPI=""
+FLAG_VSCODE_SNIPPETS=""
+HAS_FLAGS=false
+
+POSITIONAL_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --package-name)
+            FLAG_PACKAGE_NAME="$2"
+            HAS_FLAGS=true
+            shift 2
+            ;;
+        --executable-name)
+            FLAG_EXECUTABLE_NAME="$2"
+            HAS_FLAGS=true
+            shift 2
+            ;;
+        --lambda)
+            FLAG_LAMBDA="yes"
+            HAS_FLAGS=true
+            shift
+            ;;
+        --openapi)
+            FLAG_OPENAPI="yes"
+            HAS_FLAGS=true
+            shift
+            ;;
+        --vscode-snippets)
+            FLAG_VSCODE_SNIPPETS="yes"
+            HAS_FLAGS=true
+            shift
+            ;;
+        -*)
+            exitWithError "Unknown option: $1"
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
 # Download Bash Mustache
 TEMP_FOLDER=$(mktemp -d)
 MO="$TEMP_FOLDER"/mo
@@ -114,7 +160,7 @@ download_mo
 
 echo "Configuring your Hummingbird project"
 
-RELATIVE_TARGET_FOLDER=${1:-}
+RELATIVE_TARGET_FOLDER=${POSITIONAL_ARGS[0]:-}
 
 # if no target folder is supplied ask for one
 if [[ -z "$RELATIVE_TARGET_FOLDER" ]]; then
@@ -143,45 +189,89 @@ mkdir -p "$TARGET_FOLDER"/.github/workflows
 BASE_FOLDER=$(basename "$TARGET_FOLDER")
 CLEAN_BASE_FOLDER=$(echo "$BASE_FOLDER" | sed -e 's/[^a-zA-Z0-9_\-]/_/g')
 
-echo ""
-echo -n "Enter your Swift package name: "
-read_input_with_default "$CLEAN_BASE_FOLDER"
-export hbPackageName=$READ_INPUT_RETURN
+# Package name
+if [[ -n "$FLAG_PACKAGE_NAME" ]]; then
+    export hbPackageName="$FLAG_PACKAGE_NAME"
+else
+    echo ""
+    echo -n "Enter your Swift package name: "
+    read_input_with_default "$CLEAN_BASE_FOLDER"
+    export hbPackageName=$READ_INPUT_RETURN
+fi
 if [[ "$hbPackageName" =~ [^a-zA-Z0-9_-] ]]; then
     exitWithError "Invalid package name: $hbPackageName"
 fi
 
-echo -n "Do you want to build an AWS Lambda function? "
-read_yes_no "no"
-if [[ "$READ_INPUT_RETURN" == "yes" ]]; then
+# Lambda
+if [[ -n "$FLAG_LAMBDA" ]]; then
     export hbLambda="yes"
     export hbLambdaType="APIGatewayV2"
     export hbExecutableName="App"
-else
+elif [[ "$HAS_FLAGS" == true ]]; then
     export hbLambda=""
-    echo -n "Enter your executable name: "
-    read_input_with_default "App"
-    export hbExecutableName=$READ_INPUT_RETURN
+    # Executable name
+    if [[ -n "$FLAG_EXECUTABLE_NAME" ]]; then
+        export hbExecutableName="$FLAG_EXECUTABLE_NAME"
+    else
+        echo -n "Enter your executable name: "
+        read_input_with_default "App"
+        export hbExecutableName=$READ_INPUT_RETURN
+    fi
     if [[ "$hbExecutableName" =~ [^a-zA-Z0-9_] ]]; then
         exitWithError "Invalid executable name: $hbExecutableName"
     fi
+else
+    echo -n "Do you want to build an AWS Lambda function? "
+    read_yes_no "no"
+    if [[ "$READ_INPUT_RETURN" == "yes" ]]; then
+        export hbLambda="yes"
+        export hbLambdaType="APIGatewayV2"
+        export hbExecutableName="App"
+    else
+        export hbLambda=""
+        echo -n "Enter your executable name: "
+        read_input_with_default "App"
+        export hbExecutableName=$READ_INPUT_RETURN
+        if [[ "$hbExecutableName" =~ [^a-zA-Z0-9_] ]]; then
+            exitWithError "Invalid executable name: $hbExecutableName"
+        fi
+    fi
 fi
 
-echo -n "Do you want to use the OpenAPI generator? "
-read_yes_no "no"
-if [[ "$READ_INPUT_RETURN" == "yes" ]]; then
-    export hbOpenAPI="yes"
-    mkdir -p "$TARGET_FOLDER"/Sources/AppAPI
+# OpenAPI
+if [[ "$HAS_FLAGS" == true ]]; then
+    if [[ -n "$FLAG_OPENAPI" ]]; then
+        export hbOpenAPI="yes"
+        mkdir -p "$TARGET_FOLDER"/Sources/AppAPI
+    else
+        export hbOpenAPI=""
+    fi
 else
-    export hbOpenAPI=""
+    echo -n "Do you want to use the OpenAPI generator? "
+    read_yes_no "no"
+    if [[ "$READ_INPUT_RETURN" == "yes" ]]; then
+        export hbOpenAPI="yes"
+        mkdir -p "$TARGET_FOLDER"/Sources/AppAPI
+    else
+        export hbOpenAPI=""
+    fi
 fi
 
-echo -n "Include Visual Studio Code snippets: "
-read_yes_no "no"
-if [[ "$READ_INPUT_RETURN" == "yes" ]]; then
-    export hbVSCodeSnippets="yes"
+# VS Code snippets
+if [[ "$HAS_FLAGS" == true ]]; then
+    if [[ -n "$FLAG_VSCODE_SNIPPETS" ]]; then
+        export hbVSCodeSnippets="yes"
+    else
+        export hbVSCodeSnippets=""
+    fi
 else
-    export hbVSCodeSnippets=""
+    echo -n "Include Visual Studio Code snippets: "
+    read_yes_no "no"
+    if [[ "$READ_INPUT_RETURN" == "yes" ]]; then
+        export hbVSCodeSnippets="yes"
+    else
+        export hbVSCodeSnippets=""
+    fi
 fi
 
 echo ""
