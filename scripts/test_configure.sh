@@ -288,6 +288,26 @@ test_flags_before_positional() {
 }
 
 # ============================================================================
+# Test: Generated project contains valid ci.yml
+# ============================================================================
+test_generated_ci_yml() {
+    echo "TEST: Generated project contains valid ci.yml"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/citest"
+
+    "$CONFIGURE" "$OUTPUT_DIR" \
+        --package-name "CiTest" \
+        --executable-name "App" \
+        </dev/null 2>&1
+
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_exists "$OUTPUT_DIR/.github/workflows/ci.yml" "ci.yml exists in generated project"
+    assert_file_not_contains "$OUTPUT_DIR/.github/workflows/ci.yml" "{{hb" "ci.yml does not contain mustache syntax"
+
+    teardown
+}
+
+# ============================================================================
 # Run all tests
 # ============================================================================
 echo "========================================"
@@ -312,6 +332,8 @@ echo ""
 test_flags_after_positional
 echo ""
 test_flags_before_positional
+echo ""
+test_generated_ci_yml
 
 echo ""
 echo "========================================"
