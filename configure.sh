@@ -115,6 +115,23 @@ FLAG_EXECUTABLE_NAME=""
 FLAG_LAMBDA=""
 FLAG_OPENAPI=""
 FLAG_VSCODE_SNIPPETS=""
+FLAG_DEFAULTS=""
+
+show_help() {
+    echo "Usage: configure.sh [TARGET_FOLDER] [OPTIONS]"
+    echo ""
+    echo "Configure a new Hummingbird project."
+    echo ""
+    echo "Options:"
+    echo "  --package-name NAME      Set the Swift package name"
+    echo "  --executable-name NAME   Set the executable target name"
+    echo "  --lambda                 Build as an AWS Lambda function"
+    echo "  --openapi                Use the OpenAPI generator"
+    echo "  --vscode-snippets        Include Visual Studio Code snippets"
+    echo "  --defaults               Use default values for any option not set by a flag"
+    echo "  --help                   Show this help message and exit"
+    exit 0
+}
 
 POSITIONAL_ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -139,6 +156,13 @@ while [[ $# -gt 0 ]]; do
             FLAG_VSCODE_SNIPPETS="yes"
             shift
             ;;
+        --defaults)
+            FLAG_DEFAULTS="yes"
+            shift
+            ;;
+        --help)
+            show_help
+            ;;
         -*)
             exitWithError "Unknown option: $1"
             ;;
@@ -148,10 +172,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-has_any_flags() {
-    [[ -n "$FLAG_PACKAGE_NAME$FLAG_EXECUTABLE_NAME$FLAG_LAMBDA$FLAG_OPENAPI$FLAG_VSCODE_SNIPPETS" ]]
-}
 
 # Download Bash Mustache
 TEMP_FOLDER=$(mktemp -d)
@@ -192,7 +212,7 @@ CLEAN_BASE_FOLDER=$(echo "$BASE_FOLDER" | sed -e 's/[^a-zA-Z0-9_\-]/_/g')
 # Package name
 if [[ -n "$FLAG_PACKAGE_NAME" ]]; then
     export hbPackageName="$FLAG_PACKAGE_NAME"
-elif has_any_flags; then
+elif [[ -n "$FLAG_DEFAULTS" ]]; then
     export hbPackageName="$CLEAN_BASE_FOLDER"
 else
     echo ""
@@ -209,7 +229,7 @@ if [[ -n "$FLAG_LAMBDA" ]]; then
     export hbLambda="yes"
     export hbLambdaType="APIGatewayV2"
     export hbExecutableName="App"
-elif has_any_flags; then
+elif [[ -n "$FLAG_DEFAULTS" ]]; then
     export hbLambda=""
     # Executable name
     if [[ -n "$FLAG_EXECUTABLE_NAME" ]]; then
@@ -229,9 +249,14 @@ else
         export hbExecutableName="App"
     else
         export hbLambda=""
-        echo -n "Enter your executable name: "
-        read_input_with_default "App"
-        export hbExecutableName=$READ_INPUT_RETURN
+        # Executable name
+        if [[ -n "$FLAG_EXECUTABLE_NAME" ]]; then
+            export hbExecutableName="$FLAG_EXECUTABLE_NAME"
+        else
+            echo -n "Enter your executable name: "
+            read_input_with_default "App"
+            export hbExecutableName=$READ_INPUT_RETURN
+        fi
         if [[ "$hbExecutableName" =~ [^a-zA-Z0-9_] ]]; then
             exitWithError "Invalid executable name: $hbExecutableName"
         fi
@@ -242,7 +267,7 @@ fi
 if [[ -n "$FLAG_OPENAPI" ]]; then
     export hbOpenAPI="yes"
     mkdir -p "$TARGET_FOLDER"/Sources/AppAPI
-elif has_any_flags; then
+elif [[ -n "$FLAG_DEFAULTS" ]]; then
     export hbOpenAPI=""
 else
     echo -n "Do you want to use the OpenAPI generator? "
@@ -258,7 +283,7 @@ fi
 # VS Code snippets
 if [[ -n "$FLAG_VSCODE_SNIPPETS" ]]; then
     export hbVSCodeSnippets="yes"
-elif has_any_flags; then
+elif [[ -n "$FLAG_DEFAULTS" ]]; then
     export hbVSCodeSnippets=""
 else
     echo -n "Include Visual Studio Code snippets: "

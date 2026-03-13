@@ -117,6 +117,7 @@ test_all_flags() {
     local OUTPUT_DIR="$TEST_TMPDIR/myapp"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "MyApp" \
         --executable-name "MyServer" \
         --openapi \
@@ -143,6 +144,7 @@ test_lambda_flag() {
     local OUTPUT_DIR="$TEST_TMPDIR/lambdaapp"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "LambdaApp" \
         --lambda \
         </dev/null 2>&1
@@ -164,6 +166,7 @@ test_lambda_overrides_executable() {
     local OUTPUT_DIR="$TEST_TMPDIR/lambdaoverride"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "LambdaOverride" \
         --lambda \
         --executable-name "CustomExe" \
@@ -184,6 +187,7 @@ test_minimal_flags() {
     local OUTPUT_DIR="$TEST_TMPDIR/minimalapp"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "MinimalApp" \
         --executable-name "MinExe" \
         </dev/null 2>&1
@@ -206,6 +210,7 @@ test_package_name_only() {
     local OUTPUT_DIR="$TEST_TMPDIR/pkgonly"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "PkgOnly" \
         </dev/null 2>&1
 
@@ -227,6 +232,7 @@ test_openapi_only() {
     local OUTPUT_DIR="$TEST_TMPDIR/my_project"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --openapi \
         </dev/null 2>&1
 
@@ -248,6 +254,7 @@ test_lambda_only() {
     local OUTPUT_DIR="$TEST_TMPDIR/lambda_project"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --lambda \
         </dev/null 2>&1
 
@@ -267,6 +274,7 @@ test_invalid_package_name() {
     local OUTPUT_DIR="$TEST_TMPDIR/badname"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "Bad Name!" \
         --executable-name "App" \
         </dev/null 2>&1
@@ -285,6 +293,7 @@ test_invalid_executable_name() {
     local OUTPUT_DIR="$TEST_TMPDIR/badexe"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "GoodName" \
         --executable-name "Bad Exe!" \
         </dev/null 2>&1
@@ -303,6 +312,7 @@ test_unknown_flag() {
     local OUTPUT_DIR="$TEST_TMPDIR/unknownflag"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "TestApp" \
         --bogus-flag \
         </dev/null 2>&1
@@ -321,6 +331,7 @@ test_flags_after_positional() {
     local OUTPUT_DIR="$TEST_TMPDIR/flagsafter"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "FlagsAfter" \
         --executable-name "App" \
         </dev/null 2>&1
@@ -337,6 +348,7 @@ test_flags_before_positional() {
     local OUTPUT_DIR="$TEST_TMPDIR/flagsbefore"
 
     "$CONFIGURE" \
+        --defaults \
         --package-name "FlagsBefore" \
         --executable-name "App" \
         "$OUTPUT_DIR" \
@@ -357,6 +369,7 @@ test_generated_ci_yml() {
     local OUTPUT_DIR="$TEST_TMPDIR/citest"
 
     "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
         --package-name "CiTest" \
         --executable-name "App" \
         </dev/null 2>&1
@@ -364,6 +377,229 @@ test_generated_ci_yml() {
     assert_exit_code $? 0 "exits successfully"
     assert_file_exists "$OUTPUT_DIR/.github/workflows/ci.yml" "ci.yml exists in generated project"
     assert_file_not_contains "$OUTPUT_DIR/.github/workflows/ci.yml" "{{hb" "ci.yml does not contain mustache syntax"
+
+    teardown
+}
+
+# ============================================================================
+# Test: --defaults only (all defaults, no prompts)
+# ============================================================================
+test_defaults_only() {
+    echo "TEST: --defaults only (all defaults, no prompts)"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/defaultsonly"
+
+    "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
+        </dev/null 2>&1
+
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_exists "$OUTPUT_DIR/Package.swift" "Package.swift is created"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "defaultsonly" "package name defaults to folder basename"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "App" "executable defaults to App"
+    assert_file_not_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda defaults to off"
+    assert_dir_not_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI defaults to off"
+
+    teardown
+}
+
+# ============================================================================
+# Test: --defaults with some flags
+# ============================================================================
+test_defaults_with_some_flags() {
+    echo "TEST: --defaults with some flags"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/defaultsflags"
+
+    "$CONFIGURE" "$OUTPUT_DIR" \
+        --defaults \
+        --openapi \
+        --package-name "CoolAPI" \
+        </dev/null 2>&1
+
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "CoolAPI" "package name from flag"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "App" "executable defaults to App"
+    assert_dir_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI enabled from flag"
+    assert_file_not_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda defaults to off"
+
+    teardown
+}
+
+# ============================================================================
+# Test: --help prints usage and exits 0
+# ============================================================================
+test_help() {
+    echo "TEST: --help prints usage and exits 0"
+    setup
+
+    local OUTPUT
+    OUTPUT=$("$CONFIGURE" --help 2>&1)
+    assert_exit_code $? 0 "--help exits with code 0"
+
+    if echo "$OUTPUT" | grep -q "\-\-defaults"; then
+        echo "  PASS: --help output mentions --defaults"
+        PASS_COUNT=$((PASS_COUNT + 1))
+    else
+        echo "  FAIL: --help output should mention --defaults"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+
+    if echo "$OUTPUT" | grep -q "\-\-package-name"; then
+        echo "  PASS: --help output mentions --package-name"
+        PASS_COUNT=$((PASS_COUNT + 1))
+    else
+        echo "  FAIL: --help output should mention --package-name"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+
+    if echo "$OUTPUT" | grep -q "\-\-lambda"; then
+        echo "  PASS: --help output mentions --lambda"
+        PASS_COUNT=$((PASS_COUNT + 1))
+    else
+        echo "  FAIL: --help output should mention --lambda"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+
+    teardown
+}
+
+# ============================================================================
+# Expect-based interactive tests
+# ============================================================================
+
+# Helper: run an expect script and capture its exit code.
+# Writes expect output to $TEST_TMPDIR/expect_output for assertions.
+run_expect() {
+    local expect_script="$1"
+    expect -c "$expect_script" > "$TEST_TMPDIR/expect_output" 2>&1
+    return $?
+}
+
+# ============================================================================
+# Test: Fully interactive — all prompts appear, all defaults accepted
+# ============================================================================
+test_interactive_all_defaults() {
+    echo "TEST: Fully interactive — accept all defaults"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/interactive_defaults"
+
+    run_expect "
+        set timeout 30
+        spawn $CONFIGURE $OUTPUT_DIR
+        expect \"Enter your Swift package name:\"
+        send \"\r\"
+        expect \"Do you want to build an AWS Lambda function?\"
+        send \"\r\"
+        expect \"Enter your executable name:\"
+        send \"\r\"
+        expect \"Do you want to use the OpenAPI generator?\"
+        send \"\r\"
+        expect \"Include Visual Studio Code snippets:\"
+        send \"\r\"
+        expect eof
+        catch wait result
+        exit [lindex \$result 3]
+    "
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_exists "$OUTPUT_DIR/Package.swift" "Package.swift is created"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "interactive_defaults" "package name defaults to folder basename"
+    assert_file_not_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda defaults to off"
+    assert_dir_not_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI defaults to off"
+
+    teardown
+}
+
+# ============================================================================
+# Test: Fully interactive — provide custom values
+# ============================================================================
+test_interactive_custom_values() {
+    echo "TEST: Fully interactive — custom values"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/interactive_custom"
+
+    run_expect "
+        set timeout 30
+        spawn $CONFIGURE $OUTPUT_DIR
+        expect \"Enter your Swift package name:\"
+        send \"CustomPkg\r\"
+        expect \"Do you want to build an AWS Lambda function?\"
+        send \"n\r\"
+        expect \"Enter your executable name:\"
+        send \"MyExe\r\"
+        expect \"Do you want to use the OpenAPI generator?\"
+        send \"y\r\"
+        expect \"Include Visual Studio Code snippets:\"
+        send \"y\r\"
+        expect eof
+        catch wait result
+        exit [lindex \$result 3]
+    "
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "CustomPkg" "package name is CustomPkg"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "MyExe" "executable name is MyExe"
+    assert_dir_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI directory created"
+
+    teardown
+}
+
+# ============================================================================
+# Test: Flag without --defaults — flag's prompt is skipped, others appear
+# ============================================================================
+test_interactive_with_openapi_flag() {
+    echo "TEST: --openapi without --defaults — skips openapi prompt, prompts for rest"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/interactive_flag"
+
+    run_expect "
+        set timeout 30
+        spawn $CONFIGURE $OUTPUT_DIR --openapi
+        expect \"Enter your Swift package name:\"
+        send \"FlagTest\r\"
+        expect \"Do you want to build an AWS Lambda function?\"
+        send \"n\r\"
+        expect \"Enter your executable name:\"
+        send \"App\r\"
+        # OpenAPI prompt should NOT appear — it was set by flag
+        expect \"Include Visual Studio Code snippets:\"
+        send \"n\r\"
+        expect eof
+        catch wait result
+        exit [lindex \$result 3]
+    "
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "FlagTest" "package name from interactive input"
+    assert_dir_exists "$OUTPUT_DIR/Sources/AppAPI" "OpenAPI enabled from flag"
+
+    teardown
+}
+
+# ============================================================================
+# Test: --lambda flag without --defaults — skips lambda + exe prompts
+# ============================================================================
+test_interactive_with_lambda_flag() {
+    echo "TEST: --lambda without --defaults — skips lambda and executable prompts"
+    setup
+    local OUTPUT_DIR="$TEST_TMPDIR/interactive_lambda"
+
+    run_expect "
+        set timeout 30
+        spawn $CONFIGURE $OUTPUT_DIR --lambda
+        expect \"Enter your Swift package name:\"
+        send \"LambdaInteractive\r\"
+        # Lambda prompt should NOT appear — set by flag
+        # Executable prompt should NOT appear — forced by lambda
+        expect \"Do you want to use the OpenAPI generator?\"
+        send \"n\r\"
+        expect \"Include Visual Studio Code snippets:\"
+        send \"n\r\"
+        expect eof
+        catch wait result
+        exit [lindex \$result 3]
+    "
+    assert_exit_code $? 0 "exits successfully"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "LambdaInteractive" "package name from interactive input"
+    assert_file_contains "$OUTPUT_DIR/Package.swift" "hummingbird-lambda" "Lambda enabled from flag"
 
     teardown
 }
@@ -401,6 +637,20 @@ echo ""
 test_flags_before_positional
 echo ""
 test_generated_ci_yml
+echo ""
+test_defaults_only
+echo ""
+test_defaults_with_some_flags
+echo ""
+test_help
+echo ""
+test_interactive_all_defaults
+echo ""
+test_interactive_custom_values
+echo ""
+test_interactive_with_openapi_flag
+echo ""
+test_interactive_with_lambda_flag
 
 echo ""
 echo "========================================"
